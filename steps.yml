@@ -62,8 +62,26 @@ parts:
       - cap: Open the Jenkins service running in our cluster.  You will retrieve the admin password in the next step.
         com: minikube service jenkins
 
-      - cap: Get Jenkins admin password. Enter the admin password from above and choose "suggested plugins". Create a new job with type pipeline. Scroll down and under "pipeline script" choose "Pipeline script from SCM". Under SCM choose GIT. Fork repo and put "repository url" as your fork, such as https://github.com/kenzanlabs/kubernetes-ci-cd.git. Save and run the job.
+      - cap: Get Jenkins admin password with the following command.
         com: kubectl exec -it `kubectl get pods --selector=app=jenkins --output=jsonpath={.items..metadata.name}` cat /root/.jenkins/secrets/initialAdminPassword
+
+      - cap: Enter the password above into the Jenkins page and choose to install the suggested plugins.
+        com: echo 'Enter the password above into the Jenkins page and choose to install the suggested plugins.' 
+
+      - cap: Create an admin user when prompted in Jenkins (or click the skip link in the lower right).
+        com: echo 'Create an admin user when prompted in Jenkins (or click the skip link in the lower right).'
+
+      - cap: Click "New Item" and create an item with a name like "Hello-Kenzan Pipeline", choosing the type "Pipeline". Click OK.
+        com: echo 'Click "New Item" and create an item with a name like "Hello-Kenzan Pipeline", choosing the type "Pipeline". Click OK.'
+
+      - cap: From pipeline configuration, scroll down to Pipeline and change the Definition selection from "Pipeline script" to "Pipeline script from SCM". 
+        com: echo 'From pipeline configuration, scroll down to Pipeline and change the Definition selection from "Pipeline script" to "Pipeline script from SCM".'
+
+      - cap: Set the SCM property to GIT. 
+        com: echo 'Set the SCM property to GIT.'
+
+      - cap: Fork the kenzanlabs repository in github and set the "Repository URL" to your fork, such as https://github.com/kenzanlabs/kubernetes-ci-cd.git. Save and run the job.
+        com: echo 'Fork the kenzanlabs repository in github and set the "Repository URL" to your fork, such as https://github.com/kenzanlabs/kubernetes-ci-cd.git. Save and run the job.'
 
       - cap: View updated application
         com: minikube service hello-kenzan
@@ -88,7 +106,7 @@ parts:
         com: kubectl apply -f manifests/all-services.yml
       
       - cap: Now we're going to walk through an initial build of the monitoring and scaling service for our crosswords application.
-        com: docker build -t 127.0.0.1:30400/monitor-scale:`git rev-parse --short HEAD` -f applications/monitor/Dockerfile applications/monitor
+        com: docker build -t 127.0.0.1:30400/monitor-scale:`git rev-parse --short HEAD` -f applications/monitor-scale/Dockerfile applications/monitor-scale
 
       - cap: Setup the proxy in order to push the monitoring docker image to our cluster's registry
         com: docker stop socat-registry; docker rm socat-registry; docker run -d -e "REGIP=`minikube ip`" --name socat-registry -p 30400:5000 chadmoon/socat:latest bash -c "socat TCP4-LISTEN:5000,fork,reuseaddr TCP4:`minikube ip`:30400"
@@ -103,7 +121,7 @@ parts:
         com: minikube service registry-ui
 
       - cap: Create the deployment and service for the monitoring and scaling server and wait for it to be deployed
-        com: sed 's#127.0.0.1:30400/monitor-scale:latest#127.0.0.1:30400/monitor-scale:'`git rev-parse --short HEAD`'#' applications/monitor/k8s/monitor-scale.yaml | kubectl apply -f -
+        com: sed 's#127.0.0.1:30400/monitor-scale:latest#127.0.0.1:30400/monitor-scale:'`git rev-parse --short HEAD`'#' applications/monitor-scale/k8s/deployment.yaml | kubectl apply -f -
       
       - cap: Wait for the deployment to run
         com: kubectl rollout status deployment/monitor-scale
@@ -121,13 +139,13 @@ parts:
         com: kubectl get deployments
 
       - cap: Now we will bootstrap the crossword/mongodb services, creating a docker image and storing it in the local registry. This script runs the same steps as before for a different service application.
-        com: scripts/server.sh
+        com: scripts/puzzle.sh
 
-      - cap: Check to see if services has been deployed
-        com: kubectl rollout status deployment/services
+      - cap: Check to see if the puzzle service has been deployed
+        com: kubectl rollout status deployment/puzzle
 
       - cap: Bootstrap the frontend web application.  This script follows the same steps as before but 
-        com: scripts/pages.sh
+        com: scripts/kr8sswordz-pages.sh
 
       - cap: Check to see if the front end has been deployed
         com: kubectl rollout status deployment/kr8sswordz
@@ -138,45 +156,48 @@ parts:
       - cap: Start the web application in your default browser
         com: minikube service kr8sswordz
 
-#  - name: Part 4
-#    intro: Kubescale
-#    steps:
+  - name: Part 4
+    intro: In this part we will return to our Jenkins instance and setup jobs for each component of the kr8sswordz application.
+    steps:
 
-#      - cap: Bootstrap etcd operator on the cluster
-#        com: scripts/etcd.sh
+      - cap: Open the Jenkins service running in our cluster.
+        com: minikube service jenkins
 
-#      - cap: Run job to create etcd directory
-#        com: kubectl create -f manifests/etcd-job.yml
+      - cap: Login as admin, if necessary.
+        com: echo 'Login as admin, if necessary.' 
 
-#      - cap: Check job status
-#        com: kubectl describe jobs/etcd-job
+      - cap: Click "New Item" and create an item with a name like "Puzzle Service Pipeline", choosing the type "Pipeline". Click OK.
+        com: echo 'Click "New Item" and create an item with a name like "Puzzle Service Pipeline", choosing the type "Pipeline". Click OK.'
 
-#      - cap: build kubescale image
-#        com: docker build -t 127.0.0.1:30400/kubescale:latest -f applications/kubescale/Dockerfile applications/kubescale
+      - cap: From pipeline configuration, scroll down to Pipeline and change the Definition selection from "Pipeline script" to "Pipeline script from SCM". 
+        com: echo 'From pipeline configuration, scroll down to Pipeline and change the Definition selection from "Pipeline script" to "Pipeline script from SCM".'
 
-#      - cap: build scaling image
-#        com: docker build -t 127.0.0.1:30400/set:latest -f applications/kubescale/set/Dockerfile applications/kubescale/set
+      - cap: Set the SCM property to GIT. 
+        com: echo 'Set the SCM property to GIT.'
 
-#      - cap: Start the registry proxy.
-#        com: docker stop socat-registry; docker rm socat-registry; docker run -d -e "REGIP=`minikube ip`" --name socat-registry -p 30400:5000 chadmoon/socat:latest bash -c "socat TCP4-LISTEN:5000,fork,reuseaddr TCP4:`minikube ip`:30400"
+      - cap: Set the "Repository URL" to your fork (created in Part 2), such as https://github.com/kenzanlabs/kubernetes-ci-cd.git.
+        com: echo 'Set the "Repository URL" to your fork (created in Part 2), such as https://github.com/kenzanlabs/kubernetes-ci-cd.git.'
 
-#      - cap: Push the kubescale image
-#        com: docker push 127.0.0.1:30400/kubescale:latest
+      - cap: Set the "Script Path" to applications/puzzle/Jenkinsfile
+        com: echo 'Set the "Script Path" to applications/puzzle/Jenkinsfile'
 
-#      - cap: Push the scaling image
-#        com: docker push 127.0.0.1:30400/set:latest
+      - cap: Save and run the job using the "Build Now" button.
+        com: echo 'Save and run the job using the "Build Now" button.'
 
-#      - cap: Stop the registry proxy
-#        com: docker stop socat-registry
+      - cap: View updated application
+        com: minikube service kr8sswordz
 
-#      - cap: Deploy kubescale
-#        com: kubectl apply -f applications/kubescale/k8s/kubescale.yml; kubectl rollout status deployment/kubescale 
+      - cap: Edit the contents of 'applications/puzzle/common/crossword.js' by uncommenting line 43. This will open the file with the nano editor. When finished press ctrl + x to exit and confirm save.
+        com: nano applications/puzzle/common/crossword.js
 
-#      - cap: Deploy scaling set
-#        com: kubectl apply -f applications/kubescale/k8s/set.yml; kubectl rollout status deployment/set
+      - cap: Commit and push the change to your fork and run the Puzzle Service Pipeline in Jenkins.
+        com: echo 'Commit and push the change to your fork and run the Puzzle Service Pipeline in Jenkins.'
+      
+      - cap: Wait for the new puzzle pod enter the 'Running' state.
+        com: kubectl get pods
 
-#      - cap: View kubescale application
-#        com: minikube service kubescale
+      - cap: Rerun the application and see that a puzzle pod in the middle of the page turns green when clicking the Submit button.
+        com: minikube service kr8sswordz
 
   # - name: Part 5
   #   intro: Spinnaker
